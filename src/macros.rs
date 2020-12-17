@@ -88,10 +88,10 @@ macro_rules! convert_key {
             winit::event::VirtualKeyCode::Numpad8 => conrod_core::input::keyboard::Key::NumPad8,
             winit::event::VirtualKeyCode::Numpad9 => conrod_core::input::keyboard::Key::NumPad9,
             winit::event::VirtualKeyCode::NumpadComma => conrod_core::input::keyboard::Key::NumPadDecimal,
-            winit::event::VirtualKeyCode::Divide => conrod_core::input::keyboard::Key::NumPadDivide,
-            winit::event::VirtualKeyCode::Multiply => conrod_core::input::keyboard::Key::NumPadMultiply,
-            winit::event::VirtualKeyCode::Subtract => conrod_core::input::keyboard::Key::NumPadMinus,
-            winit::event::VirtualKeyCode::Add => conrod_core::input::keyboard::Key::NumPadPlus,
+            winit::event::VirtualKeyCode::NumpadDivide => conrod_core::input::keyboard::Key::NumPadDivide,
+            winit::event::VirtualKeyCode::NumpadMultiply => conrod_core::input::keyboard::Key::NumPadMultiply,
+            winit::event::VirtualKeyCode::NumpadSubtract => conrod_core::input::keyboard::Key::NumPadMinus,
+            winit::event::VirtualKeyCode::NumpadAdd => conrod_core::input::keyboard::Key::NumPadPlus,
             winit::event::VirtualKeyCode::NumpadEnter => conrod_core::input::keyboard::Key::NumPadEnter,
             winit::event::VirtualKeyCode::NumpadEquals => conrod_core::input::keyboard::Key::NumPadEquals,
             winit::event::VirtualKeyCode::LShift => conrod_core::input::keyboard::Key::LShift,
@@ -152,23 +152,21 @@ macro_rules! convert_mouse_button {
 #[macro_export]
 macro_rules! convert_window_event {
     ($event:expr, $window:expr) => {{
+        eprintln!("Call to convert_window_event macro");
         // The window size in points.
-        let (win_w, win_h) = match $window.get_inner_size() {
-            Some((w, h)) => (w as conrod_core::Scalar, h as conrod_core::Scalar),
-            None => return None,
-        };
+        let (win_w, win_h) = $window.framebuffer_dimensions();
 
         // Translate the coordinates from top-left-origin-with-y-down to centre-origin-with-y-up.
-        let tx = |x: conrod_core::Scalar| x - win_w / 2.0;
-        let ty = |y: conrod_core::Scalar| -(y - win_h / 2.0);
+        let tx = |x: conrod_core::Scalar| x - (win_w / 2) as f64;
+        let ty = |y: conrod_core::Scalar| (win_h / 2) as f64 - y;
 
         // Functions for converting keys and mouse buttons.
         let map_key = |key| $crate::convert_key!(key);
         let map_mouse = |button| $crate::convert_mouse_button!(button);
 
         match $event {
-            winit::event::WindowEvent::Resized(winit::dpi::LogicalSize { width, height }) => {
-                Some(conrod_core::event::Input::Resize(width as _, height as _).into())
+            winit::event::WindowEvent::Resized(winit::dpi::PhysicalSize { width, height }) => {
+                Some(conrod_core::event::Input::Resize(*width as _, *height as _).into())
             },
 
             winit::event::WindowEvent::ReceivedCharacter(ch) => {
@@ -184,45 +182,45 @@ macro_rules! convert_window_event {
             },
 
             winit::event::WindowEvent::Focused(focused) =>
-                Some(conrod_core::event::Input::Focus(focused).into()),
+                Some(conrod_core::event::Input::Focus(*focused).into()),
 
-            winit::event::event::WindowEvent::KeyboardInput { input, .. } => {
+            winit::event::WindowEvent::KeyboardInput { input, .. } => {
                 input.virtual_keycode.map(|key| {
                     match input.state {
-                        winit::event::event::ElementState::Pressed =>
+                        winit::event::ElementState::Pressed =>
                             conrod_core::event::Input::Press(conrod_core::input::Button::Keyboard(map_key(key))).into(),
-                        winit::event::event::ElementState::Released =>
+                        winit::event::ElementState::Released =>
                             conrod_core::event::Input::Release(conrod_core::input::Button::Keyboard(map_key(key))).into(),
                     }
                 })
             },
 
-            winit::event::event::WindowEvent::Touch(winit::event::event::Touch { phase, location, id, .. }) => {
-                let winit::dpi::LogicalPosition { x, y } = location;
+            winit::event::WindowEvent::Touch(winit::event::Touch { phase, location, id, .. }) => {
+                let winit::dpi::PhysicalPosition { x, y } = location;
                 let phase = match phase {
                     winit::event::TouchPhase::Started => conrod_core::input::touch::Phase::Start,
                     winit::event::TouchPhase::Moved => conrod_core::input::touch::Phase::Move,
                     winit::event::TouchPhase::Cancelled => conrod_core::input::touch::Phase::Cancel,
                     winit::event::TouchPhase::Ended => conrod_core::input::touch::Phase::End,
                 };
-                let xy = [tx(x), ty(y)];
-                let id = conrod_core::input::touch::Id::new(id);
+                let xy = [tx(*x), ty(*y)];
+                let id = conrod_core::input::touch::Id::new(*id);
                 let touch = conrod_core::input::Touch { phase: phase, id: id, xy: xy };
                 Some(conrod_core::event::Input::Touch(touch).into())
             }
 
             winit::event::WindowEvent::CursorMoved { position, .. } => {
-                let winit::dpi::LogicalPosition { x, y } = position;
-                let x = tx(x as conrod_core::Scalar);
-                let y = ty(y as conrod_core::Scalar);
+                let winit::dpi::PhysicalPosition { x, y } = position;
+                let x = tx(*x as conrod_core::Scalar);
+                let y = ty(*y as conrod_core::Scalar);
                 let motion = conrod_core::input::Motion::MouseCursor { x: x, y: y };
                 Some(conrod_core::event::Input::Motion(motion).into())
             },
 
             winit::event::WindowEvent::MouseWheel { delta, .. } => match delta {
-                winit::event::MouseScrollDelta::PixelDelta(winit::dpi::LogicalPosition { x, y }) => {
-                    let x = x as conrod_core::Scalar;
-                    let y = -y as conrod_core::Scalar;
+                winit::event::MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition { x, y }) => {
+                    let x = *x as conrod_core::Scalar;
+                    let y = -*y as conrod_core::Scalar;
                     let motion = conrod_core::input::Motion::Scroll { x: x, y: y };
                     Some(conrod_core::event::Input::Motion(motion).into())
                 },
@@ -230,20 +228,20 @@ macro_rules! convert_window_event {
                 winit::event::MouseScrollDelta::LineDelta(x, y) => {
                     // This should be configurable (we should provide a LineDelta event to allow for this).
                     const ARBITRARY_POINTS_PER_LINE_FACTOR: conrod_core::Scalar = 10.0;
-                    let x = ARBITRARY_POINTS_PER_LINE_FACTOR * x as conrod_core::Scalar;
-                    let y = ARBITRARY_POINTS_PER_LINE_FACTOR * -y as conrod_core::Scalar;
+                    let x = ARBITRARY_POINTS_PER_LINE_FACTOR * *x as conrod_core::Scalar;
+                    let y = ARBITRARY_POINTS_PER_LINE_FACTOR * -*y as conrod_core::Scalar;
                     Some(conrod_core::event::Input::Motion(conrod_core::input::Motion::Scroll { x: x, y: y }).into())
                 },
             },
 
             winit::event::WindowEvent::MouseInput { state, button, .. } => match state {
                 winit::event::ElementState::Pressed =>
-                    Some(conrod_core::event::Input::Press(conrod_core::input::Button::Mouse(map_mouse(button))).into()),
+                    Some(conrod_core::event::Input::Press(conrod_core::input::Button::Mouse(map_mouse(*button))).into()),
                 winit::event::ElementState::Released =>
-                    Some(conrod_core::event::Input::Release(conrod_core::input::Button::Mouse(map_mouse(button))).into()),
+                    Some(conrod_core::event::Input::Release(conrod_core::input::Button::Mouse(map_mouse(*button))).into()),
             },
 
-            winit::event::WindowEvent::Refresh => {
+            winit::event::WindowEvent::Resized(..) => {
                 Some(conrod_core::event::Input::Redraw)
             },
 

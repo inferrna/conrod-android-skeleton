@@ -7,20 +7,48 @@ authors = ["Jasper Bryant-Greene <jbg@rf.net.nz>"]
 package_name = "com.github.jbg.conrod-android-skeleton"
 label = "Conrod Android Skeleton"
 android_version = 18
-build_targets = ["arm-linux-androideabi"]
+build_targets = ["armv7-linux-androideabi", "x86_64-linux-android"]
 assets = "assets"
 
-[[bin]]
-name = "conrod-android-skeleton"
+#[[bin]]
+#name = "conrod-android-skeleton"
+#path = "src/main.rs"
+
+[lib]
+crate-type = ["lib", "cdylib"]
 path = "src/main.rs"
 
 [dependencies]
-android_glue = "*"
-conrod = { git = "https://github.com/jbg/conrod", features = ["winit", "glium"] }
-glium = { git = "https://github.com/jbg/glium" }
+android-ndk = "*"
+ndk-glue = "*"
+ndk = "*"
+jni = "0.17"
+conrod_core = "0.71.0"
+conrod_winit = "0.71.0"
+conrod_glium = "0.71.0"
+glium = "*"
 image = "*"
 rusttype = "*"
 rand = "*"
+winit = "*"
 
 [replace]
-"glium:0.17.0" = { git = "https://github.com/jbg/glium" }
+#"glutin:0.25.1" = { path = "../glutin-as/glutin/" }
+"glutin:0.25.1" = { git = "https://github.com/inferrna/glutin.git", branch = "android-support" }
+
+[profile.dev]            # Modify profile settings via config.
+opt-level = 0            # Optimization level.
+debug = true             # Include debug info.
+debug-assertions = true  # Enables debug assertions.
+overflow-checks = true   # Enables runtime integer overflow checks.
+lto = false              # Sets link-time optimization.
+panic = 'unwind'         # The panic strategy.
+
+[profile.release]        # Modify profile settings via config.
+opt-level = 1            # Optimization level.
+debug = true             # Include debug info.
+debug-assertions = true  # Enables debug assertions.
+overflow-checks = true   # Enables runtime integer overflow checks.
+lto = false              # Sets link-time optimization.
+panic = 'unwind'         # The panic strategy.
+
